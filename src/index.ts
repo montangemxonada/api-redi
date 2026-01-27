@@ -5,9 +5,9 @@ import helmet from "helmet";
 import morgan from "morgan";
 import { z } from "zod";
 
-import { supabaseAdmin } from "./supabase";
-import { requireUser, AuthedRequest } from "./middleware/requireUser";
-import { generateSlug, normalizeSlug, isSlugValid } from "./utils/slug";
+import { supabaseAdmin } from "./supabase.js";
+import { requireUser, AuthedRequest } from "./middleware/requireUser.js";
+import { generateSlug, normalizeSlug, isSlugValid } from "./utils/slug.js";
 
 const PORT = Number(process.env.PORT || 3000);
 const WEB_BASE_URL = (process.env.WEB_BASE_URL || "http://localhost:5173").replace(/\/$/, "");
