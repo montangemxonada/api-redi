@@ -1,16 +1,14 @@
-import { nanoid } from "nanoid";
+export function normalizeSlug(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9-_]/g, "");
+}
 
-// Base62-ish: letters+digits, url safe
-const SAFE = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+export function isSlugValid(s: string) {
+  return s.length >= 3 && s.length <= 32;
+}
 
 export function generateSlug(len = 7) {
-  return nanoid(len).replace(/[-_]/g, () => SAFE[Math.floor(Math.random() * SAFE.length)]);
-}
-
-export function normalizeSlug(slug: string) {
-  return slug.trim().replace(/^\//, "").replace(/\s+/g, "-");
-}
-
-export function isSlugValid(slug: string) {
-  return /^[a-zA-Z0-9][a-zA-Z0-9-_]{2,40}$/.test(slug);
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let out = "";
+  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
 }
