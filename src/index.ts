@@ -1,66 +1,64 @@
-import "dotenv/config";
-import express, { Request, Response } from "express";
-import cors from "cors";
+import express from "express";
 import helmet from "helmet";
+import cors from "cors";
 import morgan from "morgan";
-import { z } from "zod";
 
-import { supabaseAdmin } from "./supabase.js";
-import { requireUser, AuthedRequest } from "./middleware/requireUser.js";
-import { generateSlug, normalizeSlug, isSlugValid } from "./utils/slug.js";
-
-const PORT = Number(process.env.PORT || 3000);
-const WEB_BASE_URL = (process.env.WEB_BASE_URL || "http://localhost:5173").replace(/\/$/, "");
-const PUBLIC_API_BASE_URL = (process.env.PUBLIC_API_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
-const CORS_ORIGINS = (process.env.CORS_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean);
+import { cfg } from "./config.js";
+import { publicRouter } from "./routes/public.js";
+import { privateRouter } from "./routes/private.js";
+import { requireSupabaseJwt } from "./middleware/auth.js";
+import { publicLimiter, passwordLimiter, privateLimiter } from "./middleware/rateLimit.js";
 
 const app = express();
-app.set("trust proxy", true);
 
-app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
-app.use(express.json());
-app.use(morgan("dev"));
+// Important for correct IP when behind Render proxy
+app.set("trust proxy", 1);
+
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+}));
+app.use(express.json({ limit: "256kb" }));
+app.use(morgan("tiny"));
 
 app.use(cors({
   origin: (origin, cb) => {
-    if (!origin) return cb(null, true);
-    if (CORS_ORIGINS.length === 0) return cb(null, true);
-    if (CORS_ORIGINS.includes(origin)) return cb(null, true);
-    return cb(new Error("Not allowed by CORS"));
+    if (!origin) return cb(null, true); // curl/no-origin
+    if (cfg.corsOrigin.includes("*") || cfg.corsOrigin.includes(origin)) return cb(null, true);
+    return cb(new Error("CORS"));
   },
-  credentials: true
+  credentials: true,
 }));
 
-app.get("/health", (_req: Request, res: Response) => res.json({ ok: true }));
+app.get("/health", (_req, res) => res.json({ ok: true, name: "xln-api", env: cfg.nodeEnv }));
 
-app.get("/r/:slug", async (req: Request, res: Response) => {
-  const slug = normalizeSlug(req.params.slug);
-  const { data } = await supabaseAdmin.from("links").select("*").eq("slug", slug).maybeSingle();
-  if (!data || !data.enabled) return res.status(404).send("Not found");
-  return res.redirect(data.target_url);
+// Extra strict rate limit for password verification (before router)
+app.use("/public/verify-password", passwordLimiter);
+
+// Public endpoints (no redirect, only resolve/validate)
+app.use("/public", publicLimiter, publicRouter);
+
+// Private endpoints (JWT required)
+app.use("/private", privateLimiter, requireSupabaseJwt, privateRouter);
+
+// Root info
+app.get("/", (_req, res) => {
+  res.json({
+    ok: true,
+    message: "xln.es API — resolve & validate (no redirect)",
+    endpoints: {
+      public: ["/public/resolve/:slug", "/public/verify-password"],
+      private: ["/private/resolve/:slug", "/private/verify-password", "/private/analytics/:linkId"],
+    },
+  });
 });
 
-const CreateLinkBody = z.object({
-  target_url: z.string().url(),
-  slug: z.string().optional()
+// Error handler (CORS / JSON)
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  const msg = typeof err?.message === "string" ? err.message : "Server error";
+  const code = msg === "CORS" ? "CORS_BLOCKED" : "SERVER_ERROR";
+  res.status(code === "CORS_BLOCKED" ? 403 : 500).json({ error: code, message: msg });
 });
 
-app.post("/links", requireUser, async (req: AuthedRequest, res: Response) => {
-  const parsed = CreateLinkBody.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(parsed.error);
-
-  const slug = parsed.data.slug ? normalizeSlug(parsed.data.slug) : generateSlug(7);
-  if (!isSlugValid(slug)) return res.status(400).json({ error: "Invalid slug" });
-
-  const { data, error } = await supabaseAdmin.from("links").insert({
-    user_id: req.userId,
-    slug,
-    target_url: parsed.data.target_url,
-    enabled: true
-  }).select().single();
-
-  if (error) return res.status(500).json({ error: "Failed" });
-  res.json({ link: data, short_url: `${PUBLIC_API_BASE_URL}/r/${data.slug}` });
+app.listen(cfg.port, () => {
+  console.log(`[xln-api] listening on :${cfg.port}`);
 });
-
-app.listen(PORT, () => console.log("API running on", PORT));

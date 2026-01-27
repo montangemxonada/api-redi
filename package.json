@@ -1,25 +1,35 @@
 {
-  "name": "api-redi",
-  "version": "1.0.1",
+  "name": "xln-api",
+  "version": "1.0.0",
+  "private": true,
   "type": "module",
+  "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js"
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "lint": "eslint ."
   },
   "dependencies": {
-    "express": "^4.19.2",
+    "@supabase/supabase-js": "^2.49.1",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
-    "helmet": "^7.0.0",
-    "morgan": "^1.10.0",
     "dotenv": "^16.4.5",
-    "zod": "^3.23.8",
-    "@supabase/supabase-js": "^2.45.4"
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.1.0",
+    "jose": "^5.6.3",
+    "morgan": "^1.10.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "typescript": "^5.4.5",
-    "@types/node": "^20.11.30",
-    "@types/express": "^4.17.21",
+    "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
-    "@types/morgan": "^1.9.9"
+    "@types/express": "^4.17.21",
+    "@types/morgan": "^1.9.9",
+    "eslint": "^9.9.0",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4",
+    "@types/node": "^20.14.10"
   }
 }

@@ -1,38 +1,15 @@
 services:
-- type: web
-name: link-redirector-api
-env: node
-plan: free
-region: oregon
-
-
-buildCommand: npm install && npm run build
-startCommand: npm start
-
-
-autoDeploy: true # 🔥 ESTO ES LO CLAVE
-
-
-envVars:
-- key: NODE_ENV
-value: production
-
-
-- key: https://ocxkbbccjatvlslycnad.supabase.co
-sync: false
-
-
-- key: sb_publishable_KtfaFAten99jAGlOGDZ3bA_QA7zXKg6
-sync: false
-
-
-- key: sb_secret_lASui-bYF3n3wjjpOYRKQQ_bpmRV7WE
-sync: false
-
-
-- key: http://localhost:5173
-sync: false
-
-
-- key: http://localhost:3001
-sync: false
+  - type: web
+    name: xln-api
+    env: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      # Add the rest in Render dashboard as "Environment Variables"
