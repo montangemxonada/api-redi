@@ -1,7 +1,7 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
 import { config } from "./config";
-import { limiter } from "./middleware/ratelimit";
+import { rateLimiter } from "./middleware/rateLimit";
 import { publicRoutes } from "./routes/public";
 import { privateRoutes } from "./routes/private";
 import { analyticsRoutes } from "./routes/analytics";
@@ -9,7 +9,7 @@ import { analyticsRoutes } from "./routes/analytics";
 const app = express();
 app.use(express.json());
 app.use(cors({ origin: "*" }));
-app.use(limiter);
+app.use(rateLimiter);
 
 app.get("/", (_req: Request, res: Response) => {
   res.json({ ok: true });
