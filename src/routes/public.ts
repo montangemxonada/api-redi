@@ -1,98 +1,79 @@
 import { Router } from "express";
-import { z } from "zod";
-import bcrypt from "bcryptjs";
-import { getLinkBySlug, insertClickAndIncrement, disableLink } from "../utils/db.js";
-import { evaluateStatus, protectionFlags } from "../utils/linkRules.js";
-import { getClientIp } from "../utils/ip.js";
+import bcrypt from "bcrypt";
+import { supabase } from "../supabase";
 
-export const publicRouter = Router();
+export const publicRoutes = Router();
 
-const slugSchema = z.string().min(2).max(80).regex(/^[a-zA-Z0-9_-]+$/);
+publicRoutes.get("/resolve/:slug", async (req, res) => {
+  try {
+    const { slug } = req.params;
 
-publicRouter.get("/resolve/:slug", async (req, res) => {
-  const slug = slugSchema.safeParse(req.params.slug).data;
-  if (!slug) return res.status(400).json({ error: "BAD_SLUG" });
+    const { data } = await supabase
+      .from("links")
+      .select("*")
+      .eq("slug", slug)
+      .maybeSingle();
 
-  const link = await getLinkBySlug(slug);
-  const status = evaluateStatus(link);
-  if (!status.ok) {
-    return res.status(status.code === "NOT_FOUND" ? 404 : 410).json({
-      ok: false,
-      status: status.code,
-      slug,
-      preview: link ? { title: link.title, preview_image: link.preview_image } : null,
-    });
-  }
+    if (!data || !data.active) {
+      return res.status(404).json({ message: "NOT_FOUND" });
+    }
 
-  const flags = protectionFlags(link!);
-  const preview = { title: link!.title, preview_image: link!.preview_image };
+    if (data.expires_at && new Date(data.expires_at) < new Date()) {
+      return res.status(410).json({ message: "EXPIRED" });
+    }
 
-  // If protected (auth or password), NEVER leak target_url
-  if (flags.requires_auth || flags.requires_password) {
+    if (data.click_limit && data.click_count >= data.click_limit) {
+      return res.status(410).json({ message: "EXHAUSTED" });
+    }
+
+    const requiresPassword = !!data.password_hash;
+    const requiresAuth = !!data.requires_auth;
+
+    if (!requiresPassword && !requiresAuth) {
+      await supabase.from("links")
+        .update({ click_count: (data.click_count ?? 0) + 1 })
+        .eq("id", data.id);
+
+      return res.json({ target_url: data.target_url });
+    }
+
     return res.json({
-      ok: true,
-      type: "protected",
-      slug,
-      protection: flags,
-      preview,
+      requires_password: requiresPassword,
+      requires_auth: requiresAuth,
+      title: data.title,
+      note: data.note,
+      preview_image: data.preview_image
     });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ message: "ERROR" });
   }
-
-  // FREE direct: return target_url and register click
-  const ip = getClientIp(req);
-  const ua = String(req.headers["user-agent"] || "");
-  await insertClickAndIncrement(link!.id, ip, ua);
-
-  // auto-disable if one-time or limit reached after increment
-  const after = await getLinkBySlug(slug);
-  if (after && (after.one_time && after.click_count >= 1)) await disableLink(after.id);
-  if (after && after.click_limit != null && after.click_count >= after.click_limit) await disableLink(after.id);
-
-  return res.json({
-    ok: true,
-    type: "direct",
-    slug,
-    target_url: link!.target_url,
-    preview,
-  });
 });
 
-const verifySchema = z.object({
-  slug: slugSchema,
-  password: z.string().min(1).max(200),
-});
+publicRoutes.post("/verify-password", async (req, res) => {
+  try {
+    const { slug, password } = req.body;
 
-publicRouter.post("/verify-password", async (req, res) => {
-  const parsed = verifySchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "BAD_BODY" });
+    const { data } = await supabase
+      .from("links")
+      .select("*")
+      .eq("slug", slug)
+      .maybeSingle();
 
-  const { slug, password } = parsed.data;
-  const link = await getLinkBySlug(slug);
-  const status = evaluateStatus(link);
-  if (!status.ok) {
-    return res.status(status.code === "NOT_FOUND" ? 404 : 410).json({ ok: false, status: status.code, slug });
+    if (!data || !data.password_hash) {
+      return res.status(403).json({ message: "FORBIDDEN" });
+    }
+
+    const ok = await bcrypt.compare(password, data.password_hash);
+    if (!ok) return res.status(403).json({ message: "INVALID_PASSWORD" });
+
+    await supabase.from("links")
+      .update({ click_count: (data.click_count ?? 0) + 1 })
+      .eq("id", data.id);
+
+    return res.json({ target_url: data.target_url });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ message: "ERROR" });
   }
-
-  if (!link!.password_hash) {
-    return res.status(400).json({ error: "NO_PASSWORD_SET" });
-  }
-
-  // For public verify: only allowed when NOT requires_auth
-  if (link!.requires_auth) {
-    return res.status(401).json({ error: "LOGIN_REQUIRED" });
-  }
-
-  const ok = await bcrypt.compare(password, link!.password_hash);
-  if (!ok) return res.status(401).json({ error: "INVALID_PASSWORD" });
-
-  // success: return target_url and register click
-  const ip = getClientIp(req);
-  const ua = String(req.headers["user-agent"] || "");
-  await insertClickAndIncrement(link!.id, ip, ua);
-
-  const after = await getLinkBySlug(slug);
-  if (after && (after.one_time && after.click_count >= 1)) await disableLink(after.id);
-  if (after && after.click_limit != null && after.click_count >= after.click_limit) await disableLink(after.id);
-
-  return res.json({ ok: true, target_url: link!.target_url });
 });

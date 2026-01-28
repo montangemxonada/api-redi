@@ -1,0 +1,21 @@
+import { Router } from "express";
+import { supabase } from "../supabase";
+import { requireAuth } from "../middleware/auth";
+
+export const analyticsRoutes = Router();
+
+analyticsRoutes.get("/:linkId", requireAuth, async (req, res) => {
+  try {
+    const { linkId } = req.params;
+
+    const { data } = await supabase
+      .from("link_clicks")
+      .select("created_at")
+      .eq("link_id", linkId);
+
+    return res.json(data);
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ message: "ERROR" });
+  }
+});

@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
-import { cfg } from "./config.js";
+import { config } from "./config";
 
-export const supabaseAdmin = createClient(cfg.supabaseUrl, cfg.supabaseServiceRoleKey, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
+export const supabase = createClient(
+  config.supabaseUrl,
+  config.serviceRole
+);
