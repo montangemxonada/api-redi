@@ -1,7 +1,8 @@
+
 import jwt from "jsonwebtoken";
 import jwksClient from "jwks-rsa";
 import { Request, Response, NextFunction } from "express";
-import { config } from "../config";
+import { config } from "../config.js";
 
 const jwks = jwksClient({ jwksUri: config.jwksUrl });
 

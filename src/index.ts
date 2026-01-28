@@ -1,10 +1,11 @@
+
 import express, { Request, Response } from "express";
 import cors from "cors";
-import { config } from "./config";
-import { rateLimiter } from "./middleware/rateLimit";
-import { publicRoutes } from "./routes/public";
-import { privateRoutes } from "./routes/private";
-import { analyticsRoutes } from "./routes/analytics";
+import { config } from "./config.js";
+import { rateLimiter } from "./middleware/rateLimit.js";
+import { publicRoutes } from "./routes/public.js";
+import { privateRoutes } from "./routes/private.js";
+import { analyticsRoutes } from "./routes/analytics.js";
 
 const app = express();
 app.use(express.json());
