@@ -1,10 +1,10 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { supabase } from "../supabase";
 import { requireAuth } from "../middleware/auth";
 
 export const privateRoutes = Router();
 
-privateRoutes.get("/resolve/:slug", requireAuth, async (req, res) => {
+privateRoutes.get("/resolve/:slug", requireAuth, async (req: Request, res: Response) => {
   try {
     const { slug } = req.params;
 

@@ -1,10 +1,10 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { supabase } from "../supabase";
 import { requireAuth } from "../middleware/auth";
 
 export const analyticsRoutes = Router();
 
-analyticsRoutes.get("/:linkId", requireAuth, async (req, res) => {
+analyticsRoutes.get("/:linkId", requireAuth, async (req: Request, res: Response) => {
   try {
     const { linkId } = req.params;
 

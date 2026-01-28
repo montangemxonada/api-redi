@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import cors from "cors";
 import { config } from "./config";
 import { limiter } from "./middleware/ratelimit";
@@ -11,7 +11,9 @@ app.use(express.json());
 app.use(cors({ origin: "*" }));
 app.use(limiter);
 
-app.get("/", (_, res) => res.json({ ok: true }));
+app.get("/", (_req: Request, res: Response) => {
+  res.json({ ok: true });
+});
 
 app.use("/public", publicRoutes);
 app.use("/private", privateRoutes);

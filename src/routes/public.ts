@@ -1,10 +1,10 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import bcrypt from "bcrypt";
 import { supabase } from "../supabase";
 
 export const publicRoutes = Router();
 
-publicRoutes.get("/resolve/:slug", async (req, res) => {
+publicRoutes.get("/resolve/:slug", async (req: Request, res: Response) => {
   try {
     const { slug } = req.params;
 
@@ -50,9 +50,9 @@ publicRoutes.get("/resolve/:slug", async (req, res) => {
   }
 });
 
-publicRoutes.post("/verify-password", async (req, res) => {
+publicRoutes.post("/verify-password", async (req: Request, res: Response) => {
   try {
-    const { slug, password } = req.body;
+    const { slug, password } = req.body as { slug: string; password: string };
 
     const { data } = await supabase
       .from("links")
